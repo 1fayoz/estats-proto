@@ -1,0 +1,346 @@
+// Marketpleys adapteri — TIZIMNING ENG MUHIM SHARTNOMASI.
+//
+// Har marketpleys (Uzum, Wildberries, Yandex) shuni bajaradigan
+// alohida xizmat. `core` va `seo` faqat shu shartnomani biladi va
+// qaysi marketpleys bilan ishlayotganini bilmaydi.
+//
+// Yangi marketpleys qo'shish = shu interfeysni bajaradigan xizmat
+// yozish + ro'yxatga bitta qator. Qolgan tizimda hech narsa
+// o'zgarmaydi.
+
+syntax = "proto3";
+
+package estats.marketplace.v1;
+
+import "estats/common/v1/common.proto";
+
+option go_package = "github.com/estats/proto/gen/marketplace/v1;marketplacev1";
+
+service MarketplaceAdapter {
+  // Bu adapter nima qila oladi. HAR CHAQIRUVDAN OLDIN qaraladi.
+  rpc GetCapabilities(GetCapabilitiesRequest) returns (Capabilities);
+
+  // ── Ulanish ──────────────────────────────────────────────────
+  rpc ValidateCredentials(CredentialsRequest) returns (ValidateResult);
+
+  // ── O'qish ───────────────────────────────────────────────────
+  rpc ListListings(ListListingsRequest) returns (ListListingsResponse);
+  rpc GetListing(GetListingRequest) returns (ListingDetail);
+  rpc ListSales(ListSalesRequest) returns (ListSalesResponse);
+  rpc ListReturns(ListReturnsRequest) returns (ListReturnsResponse);
+  rpc GetModeration(GetListingRequest) returns (Moderation);
+
+  // ── Qidiruv (SEO uchun) ──────────────────────────────────────
+  rpc Search(SearchRequest) returns (SearchResponse);
+  rpc Suggest(SuggestRequest) returns (SuggestResponse);
+
+  // ── Yozish (hamma marketpleys ham ruxsat bermaydi) ───────────
+  rpc UpdatePrice(UpdatePriceRequest) returns (estats.common.v1.Result);
+  rpc UpdateStock(UpdateStockRequest) returns (estats.common.v1.Result);
+}
+
+// ── Imkoniyatlar ────────────────────────────────────────────────
+//
+// Nega kerak: Uzum narxni API orqali o'zgartirishga ruxsat
+// bermaydi, Wildberries beradi. Buni oldindan bilmasa, `core` har
+// safar urinib, har safar xato olardi va interfeys foydalanuvchiga
+// ishlamaydigan tugmani ko'rsatib turardi.
+
+message GetCapabilitiesRequest {}
+
+message Capabilities {
+  string marketplace = 1;
+  string display_name = 2;
+
+  bool listings = 3;
+  bool listing_detail = 4;
+  bool sales = 5;
+  bool returns = 6;
+  bool moderation = 7;
+  bool search = 8;
+  bool suggestions = 9;
+  bool write_price = 10;
+  bool write_stock = 11;
+
+  repeated string currencies = 12;
+  // Sotuvlar tarixi shuncha kun orqaga boradi. 0 — cheklovsiz.
+  int32 sales_history_days = 13;
+  // Qidiruv natijasining eng chuqur o'rni. 0 — qidiruv yo'q.
+  int32 max_search_depth = 14;
+}
+
+// ── Ulanish ma'lumoti ───────────────────────────────────────────
+//
+// Adapter uchun bu SHAFFOF EMAS: Uzum'da ikkita token, Wildberries'da
+// API kalit, Yandex'da OAuth. `core` ularning ichini bilmaydi va
+// bilishi ham shart emas — u faqat saqlaydi va uzatadi.
+message Credentials {
+  map<string, string> values = 1;
+}
+
+message CredentialsRequest {
+  Credentials credentials = 1;
+}
+
+message ValidateResult {
+  bool valid = 1;
+  string error = 2;
+  repeated Shop shops = 3;
+  // Token muddati bo'lsa — qachon tugashi. Bo'sh — muddatsiz.
+  string expires_at = 4;
+}
+
+message Shop {
+  string external_id = 1;
+  string name = 2;
+  string currency = 3;
+}
+
+// ── Tovar ───────────────────────────────────────────────────────
+//
+// `Listing` — tovarning BITTA MARKETPLEYSDAGI ko'rinishi.
+// Bizning omborimizdagi jismoniy tovar `core` da `Product` deb
+// ataladi va unga bir necha `Listing` bog'lanishi mumkin: bitta
+// narsani Uzum'da ham, WB'da ham sotish mumkin, lekin qoldiq
+// bitta.
+message Listing {
+  estats.common.v1.Ref ref = 1;
+  string shop_external_id = 2;
+
+  string title = 3;
+  string sku_code = 4;
+  string variant_name = 5;
+  string category = 6;
+  string url = 7;
+  repeated string images = 8;
+
+  estats.common.v1.Money price = 9;
+  estats.common.v1.Money full_price = 10;
+  int32 stock = 11;
+
+  double rating = 12;
+  int32 reviews = 13;
+  int32 orders = 14;
+
+  // Marketpleys bergan xom javob — tahlil va nosozlik uchun.
+  string raw = 15;
+}
+
+message ListingDetail {
+  Listing listing = 1;
+  string description = 2;
+  string short_description = 3;
+  repeated Attribute attributes = 4;
+  repeated Feedback feedbacks = 5;
+}
+
+message Attribute {
+  string name = 1;
+  repeated string values = 2;
+}
+
+message Feedback {
+  string content = 1;
+  string pros = 2;
+  string cons = 3;
+  int32 rating = 4;
+  string created_at = 5;
+}
+
+message ListListingsRequest {
+  Credentials credentials = 1;
+  string shop_external_id = 2;
+  estats.common.v1.PageRequest page = 3;
+  // Berilgan bo'lsa — faqat shu tildagi matn. Bo'sh — sukut til.
+  string language = 4;
+}
+
+message ListListingsResponse {
+  repeated Listing listings = 1;
+  estats.common.v1.PageInfo page = 2;
+}
+
+message GetListingRequest {
+  Credentials credentials = 1;
+  estats.common.v1.Ref ref = 2;
+  string language = 3;
+}
+
+// ── Sotuv ───────────────────────────────────────────────────────
+
+message Sale {
+  string external_item_id = 1;   // qatorning o'zi — dedup kaliti
+  string external_order_id = 2;
+  estats.common.v1.Ref product_ref = 3;
+  string shop_external_id = 4;
+
+  string title = 5;
+  string sku_code = 6;
+
+  int32 quantity = 7;
+  int32 returned_quantity = 8;
+
+  estats.common.v1.Money unit_price = 9;
+  estats.common.v1.Money gross = 10;
+  // Marketpleys ushlab qolgan to'lovlar — turlarga ajratilgan.
+  repeated Fee fees = 11;
+  // Qo'lga tegadigan summa. Adapter hisoblaydi: marketpleyslar
+  // buni turlicha ataydi va turlicha yaxlitlaydi.
+  estats.common.v1.Money payout = 12;
+
+  Status status = 13;
+  string status_raw = 14;        // marketpleysning o'z atamasi
+  string cancel_reason = 15;
+  string sold_at = 16;
+  string raw = 17;
+
+  enum Status {
+    STATUS_UNSPECIFIED = 0;
+    PROCESSING = 1;
+    DELIVERED = 2;
+    CANCELED = 3;
+    RETURNED = 4;
+  }
+}
+
+// To'lov turi.
+//
+// `label` — marketpleysning O'Z atamasi. U saqlanadi: hisobotda
+// sotuvchi tanish so'zni ko'rishi kerak, bizning tarjimamizni emas.
+//
+// MUHIM: to'lov turi yo'q bo'lsa, uni NOL deb yuborish mumkin emas.
+// Uzum saqlash to'lovini umuman bermaydi — nol yozilsa, hisobot
+// "saqlash tekin" deb ko'rsatadi. Yo'q narsa ro'yxatga kirmaydi.
+message Fee {
+  Kind kind = 1;
+  string label = 2;
+  estats.common.v1.Money amount = 3;
+
+  enum Kind {
+    KIND_UNSPECIFIED = 0;
+    COMMISSION = 1;
+    LOGISTICS = 2;
+    STORAGE = 3;
+    PENALTY = 4;
+    ADVERT = 5;
+    OTHER = 6;
+  }
+}
+
+message ListSalesRequest {
+  Credentials credentials = 1;
+  string shop_external_id = 2;
+  estats.common.v1.Period period = 3;
+  estats.common.v1.PageRequest page = 4;
+}
+
+message ListSalesResponse {
+  repeated Sale sales = 1;
+  estats.common.v1.PageInfo page = 2;
+}
+
+// ── Qaytarish ───────────────────────────────────────────────────
+
+message Return {
+  string external_id = 1;
+  string external_order_id = 2;
+  estats.common.v1.Ref product_ref = 3;
+  string shop_external_id = 4;
+
+  int32 quantity = 5;
+  string reason = 6;
+  Status status = 7;
+  // Tovar qaytib kelganmi va uni qayta sotish mumkinmi — bular
+  // ALOHIDA: kelgan bo'lishi, lekin nuqsonli bo'lishi mumkin.
+  bool received = 8;
+  bool resellable = 9;
+  string returned_at = 10;
+  string raw = 11;
+
+  enum Status {
+    STATUS_UNSPECIFIED = 0;
+    PENDING = 1;
+    COMPLETED = 2;
+    CANCELED = 3;
+  }
+}
+
+message ListReturnsRequest {
+  Credentials credentials = 1;
+  string shop_external_id = 2;
+  estats.common.v1.Period period = 3;
+  estats.common.v1.PageRequest page = 4;
+}
+
+message ListReturnsResponse {
+  repeated Return returns = 1;
+  estats.common.v1.PageInfo page = 2;
+}
+
+// ── Moderatsiya ─────────────────────────────────────────────────
+
+message Moderation {
+  State state = 1;
+  string state_raw = 2;
+  repeated string reasons = 3;
+  string changed_at = 4;
+  // Marketpleys moderatsiya holatini bermaydi.
+  bool unsupported = 5;
+
+  enum State {
+    STATE_UNSPECIFIED = 0;
+    PENDING = 1;
+    APPROVED = 2;
+    REJECTED = 3;
+  }
+}
+
+// ── Qidiruv ─────────────────────────────────────────────────────
+
+message SearchRequest {
+  string text = 1;
+  int32 limit = 2;
+  int32 offset = 3;
+  string language = 4;
+}
+
+message SearchItem {
+  int32 position = 1;
+  estats.common.v1.Ref ref = 2;
+  string title = 3;
+  estats.common.v1.Money price = 4;
+  double rating = 5;
+  int32 reviews = 6;
+  int32 orders = 7;
+  string url = 8;
+  string image = 9;
+}
+
+message SearchResponse {
+  int32 total = 1;
+  repeated SearchItem items = 2;
+}
+
+message SuggestRequest {
+  string text = 1;
+  int32 limit = 2;
+  string language = 3;
+}
+
+message SuggestResponse {
+  repeated string phrases = 1;
+}
+
+// ── Yozish ──────────────────────────────────────────────────────
+
+message UpdatePriceRequest {
+  Credentials credentials = 1;
+  estats.common.v1.Ref ref = 2;
+  estats.common.v1.Money price = 3;
+}
+
+message UpdateStockRequest {
+  Credentials credentials = 1;
+  estats.common.v1.Ref ref = 2;
+  int32 stock = 3;
+}

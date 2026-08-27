@@ -1,0 +1,55 @@
+// Hamma xizmatga umumiy tiplar.
+//
+// Bu yerga faqat CHINAKAM umumiy narsa tushadi. "Bir-ikki joyda
+// kerak" degan tip o'z paketida qolgani yaxshi: umumiy paket
+// o'sib ketsa, har o'zgarish hamma xizmatni qayta yig'ishga majbur
+// qiladi.
+
+syntax = "proto3";
+
+package estats.common.v1;
+
+option go_package = "github.com/estats/proto/gen/common/v1;commonv1";
+
+// Pul. Har doim VALYUTA bilan.
+//
+// `amount` — eng kichik birlikda (tiyin, kopeyka) va BUTUN son.
+// Suzuvchi nuqta pul uchun ishlatilmaydi: 0.1 + 0.2 ni qo'shib
+// ko'rgan har kim sababini biladi.
+message Money {
+  int64 amount = 1;
+  string currency = 2;   // ISO 4217: UZS, RUB
+}
+
+// Tashqi tizimdagi obyektga havola.
+message Ref {
+  string marketplace = 1;  // uzum, wildberries, yandex
+  string external_id = 2;
+}
+
+// Sahifalash — kursor bo'yicha.
+//
+// Ofset emas: marketpleyslar ma'lumotni sinxronizatsiya paytida
+// o'zgartiradi va ofset bilan qatorlar sakrab ketadi yoki
+// takrorlanadi.
+message PageRequest {
+  int32 size = 1;
+  string cursor = 2;
+}
+
+message PageInfo {
+  string next_cursor = 1;
+  bool has_more = 2;
+}
+
+// Vaqt oralig'i. ISO-8601, UTC.
+message Period {
+  string from = 1;
+  string to = 2;
+}
+
+// Bajarildi/bajarilmadi javobi.
+message Result {
+  bool ok = 1;
+  string error = 2;
+}

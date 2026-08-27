@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push: {branches: [main]}
+  pull_request:
+
+jobs:
+  lint:
+    name: Shartnomalar joyidami
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.13"}
+      - run: pip install grpcio-tools
+      # Kompilyatsiya bo'lmasa — shartnoma buzilgan.
+      - run: make lint
+
+      # Buzuvchi o'zgarish tekshiruvi: maydon raqami qayta
+      # ishlatilgan bo'lsa, eski xizmat yangi ma'lumotni noto'g'ri
+      # o'qiydi va buni faqat prodda bilib qolasan.
+      - uses: bufbuild/buf-action@v1
+        with:
+          setup_only: true
+      - run: buf breaking --against "https://github.com/${{ github.repository }}.git#branch=main"
+        continue-on-error: ${{ github.ref == 'refs/heads/main' }}

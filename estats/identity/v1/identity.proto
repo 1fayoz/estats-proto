@@ -1,0 +1,167 @@
+// Kirish, foydalanuvchi va ruxsat — YAGONA MANBA.
+//
+// Hech bir xizmat tokenni o'zi tekshirmaydi va foydalanuvchi
+// jadvalini o'zi o'qimaydi. Shu qoida tufayli yangi xizmat
+// qo'shilganda kirish mantiqi qaytadan yozilmaydi.
+
+syntax = "proto3";
+
+package estats.identity.v1;
+
+import "estats/common/v1/common.proto";
+
+option go_package = "github.com/estats/proto/gen/identity/v1;identityv1";
+
+service Identity {
+  // ── Kirish ───────────────────────────────────────────────────
+  rpc AuthenticateGoogle(GoogleRequest) returns (Session);
+  // Telegram WebApp `initData` ni tekshiradi va sessiya beradi.
+  // Shu tufayli WebApp ochilganda qayta login so'ralmaydi.
+  rpc AuthenticateWebApp(WebAppRequest) returns (Session);
+  // Har so'rovda: token haqiqiymi va kim.
+  rpc VerifyToken(TokenRequest) returns (Principal);
+
+  // ── Foydalanuvchi ────────────────────────────────────────────
+  rpc GetUser(UserRequest) returns (User);
+  rpc SetPhone(SetPhoneRequest) returns (User);
+  rpc ListShops(UserRequest) returns (ShopList);
+  // Ruxsat: shu odam shu do'konni ko'ra oladimi.
+  rpc CanAccessShop(AccessRequest) returns (AccessResult);
+
+  // ── Telegram bog'lanishi ─────────────────────────────────────
+  rpc LinkTelegram(LinkTelegramRequest) returns (TelegramAccount);
+  rpc WhoIsTelegram(TelegramRequest) returns (TelegramAccount);
+  rpc UnlinkTelegram(TelegramRequest) returns (estats.common.v1.Result);
+  rpc SetNotificationPrefs(PrefsRequest) returns (TelegramAccount);
+  // Shu do'kon haqida xabar oladigan chatlar.
+  rpc ListNotifyTargets(NotifyTargetsRequest) returns (NotifyTargetList);
+}
+
+// ── Kirish ──────────────────────────────────────────────────────
+
+message GoogleRequest {
+  string id_token = 1;
+}
+
+message WebAppRequest {
+  // Telegram bergan xom `initData` satri. Tekshiruv shu yerda
+  // bo'ladi: bot tokeni faqat identity'da bo'lishi kerak.
+  string init_data = 1;
+}
+
+message Session {
+  bool ok = 1;
+  string error = 2;
+  string access_token = 3;
+  string expires_at = 4;
+  User user = 5;
+}
+
+message TokenRequest {
+  string access_token = 1;
+}
+
+// Token ortidagi shaxs. Har so'rovda kerak bo'ladigan MINIMUM —
+// shuning uchun ataylab kichik: bu chaqiruv eng ko'p takrorlanadi.
+message Principal {
+  bool valid = 1;
+  int64 user_id = 2;
+  string email = 3;
+  bool is_admin = 4;
+  repeated int64 shop_ids = 5;
+  string error = 6;
+}
+
+// ── Foydalanuvchi ───────────────────────────────────────────────
+
+message UserRequest {
+  int64 user_id = 1;
+}
+
+message User {
+  int64 id = 1;
+  string email = 2;
+  string full_name = 3;
+  string phone = 4;
+  string image = 5;
+  bool is_admin = 6;
+  string language = 7;
+  repeated Shop shops = 8;
+}
+
+message Shop {
+  int64 id = 1;
+  string name = 2;
+  // Qaysi marketpleysdagi do'kon. Bir foydalanuvchida bir necha
+  // marketpleysda do'kon bo'lishi mumkin.
+  string marketplace = 3;
+  string external_id = 4;
+  string currency = 5;
+}
+
+message ShopList {
+  repeated Shop shops = 1;
+}
+
+message SetPhoneRequest {
+  int64 user_id = 1;
+  string phone = 2;
+}
+
+message AccessRequest {
+  int64 user_id = 1;
+  int64 shop_id = 2;
+}
+
+message AccessResult {
+  bool allowed = 1;
+}
+
+// ── Telegram ────────────────────────────────────────────────────
+
+message LinkTelegramRequest {
+  int64 telegram_id = 1;
+  int64 chat_id = 2;
+  string phone = 3;
+  string telegram_name = 4;
+  string telegram_username = 5;
+}
+
+message TelegramRequest {
+  int64 telegram_id = 1;
+}
+
+message TelegramAccount {
+  bool linked = 1;
+  string error = 2;
+  User user = 3;
+  int64 chat_id = 4;
+  NotificationPrefs prefs = 5;
+}
+
+message NotificationPrefs {
+  bool orders = 1;
+  bool moderation = 2;
+  bool daily_digest = 3;
+}
+
+message PrefsRequest {
+  int64 telegram_id = 1;
+  NotificationPrefs prefs = 2;
+}
+
+message NotifyTargetsRequest {
+  int64 shop_id = 1;
+  // orders | moderation | daily_digest
+  string kind = 2;
+}
+
+message NotifyTargetList {
+  repeated Target targets = 1;
+}
+
+message Target {
+  int64 chat_id = 1;
+  int64 user_id = 2;
+  string language = 3;
+}
