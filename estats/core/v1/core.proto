@@ -25,6 +25,17 @@ service Core {
   // AI sarfi yadroning yagona hisobiga (`ai_usage`) yoziladi — kalit
   // ham, sarf ham bitta joyda.
   rpc DescribeImage(DescribeImageRequest) returns (ImageDescription);
+
+  // Foydalanuvchi ko'ra oladigan do'konlardagi shu tovarlarning SOTUVI
+  // ixtiyoriy davr uchun (sotuvchi kabinetidagi reklama samaradorligi:
+  // reklama xarajati kartochkaning BUTUN sotuviga nisbatan). Pul maydonlari
+  // faqat `pnl.view` bilan.
+  rpc GetOwnSales(OwnSalesRequest) returns (OwnSales);
+
+  // Uzum qidiruvidagi o'rinlar — reklama belgisi bilan, jonli. Qidiruv
+  // tokeni va o'rin hisoblash qoidasi yadroda (SEO «Qidiruvdagi o'rin»
+  // bilan bir xil): ikkinchi nusxa yozilmaydi.
+  rpc SearchPositions(SearchPositionsRequest) returns (SearchPositions);
 }
 
 message OwnProductsRequest {
@@ -86,4 +97,59 @@ message ImageDescription {
   repeated string queries_ru = 5;
   repeated string colors = 6;
   string category_hint = 7;
+}
+
+message OwnSalesRequest {
+  int64 user_id = 1;
+  repeated int64 uzum_product_ids = 2;
+  // YYYY-MM-DD, Toshkent vaqti, ikkalasi ham kiradi.
+  string date_from = 3;
+  string date_to = 4;
+}
+
+message OwnSalesItem {
+  int64 uzum_product_id = 1;
+  int64 shop_id = 2;
+  string shop_name = 3;
+  // Uzum do'kon id'si (sotuvchi kabinetidagi `shopId`).
+  int64 uzum_shop_id = 4;
+  string title = 5;
+  // Sotilgan (va yetkazilayotgan) donalar, qaytarilganlarsiz.
+  int64 units = 6;
+  // Xaridor to'lagani (brutto).
+  int64 revenue = 7;
+  // Uzum to'lovi (sotuvchi foydasi) — `pnl.view` bo'lsagina.
+  optional int64 payout = 8;
+  // Sotilgan donalar bo'yicha o'rtacha FIFO tannarx — `pnl.view` bo'lsagina.
+  optional int64 average_cost = 9;
+  bool money_visible = 10;
+  string warehouse_url = 11;
+}
+
+message OwnSales {
+  repeated OwnSalesItem items = 1;
+  string date_from = 2;
+  string date_to = 3;
+}
+
+message SearchPositionsRequest {
+  // 60 tagacha so'rov; har biri ko'pi bilan 100 chuqurlikda.
+  repeated string queries = 1;
+  repeated int64 product_ids = 2;
+}
+
+message QueryPosition {
+  string query = 1;
+  int64 product_id = 2;
+  // O'lchandi-yu topilmadi — maydon yo'q; `measured=false` — o'lchanmadi.
+  optional int32 position = 3;
+  optional int32 organic = 4;
+  bool is_ad = 5;
+  bool measured = 6;
+}
+
+message SearchPositions {
+  repeated QueryPosition positions = 1;
+  // Bozor tokeni muddati o'tgan va h.k. — xato matni (bo'sh — hammasi o'lchandi).
+  string error = 2;
 }
