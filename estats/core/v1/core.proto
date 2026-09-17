@@ -21,11 +21,6 @@ service Core {
   // Tovar foydalanuvchiga tegishli bo'lmasa — ro'yxatda YO'Q (xato emas).
   rpc GetOwnProducts(OwnProductsRequest) returns (OwnProducts);
 
-  // Rasmdan qidiruv so'rovlari: "bu nima va Uzum'da qanday izlanadi".
-  // AI sarfi yadroning yagona hisobiga (`ai_usage`) yoziladi — kalit
-  // ham, sarf ham bitta joyda.
-  rpc DescribeImage(DescribeImageRequest) returns (ImageDescription);
-
   // Foydalanuvchi ko'ra oladigan do'konlardagi shu tovarlarning SOTUVI
   // ixtiyoriy davr uchun (sotuvchi kabinetidagi reklama samaradorligi:
   // reklama xarajati kartochkaning BUTUN sotuviga nisbatan). Pul maydonlari
@@ -79,25 +74,9 @@ message OwnProducts {
   repeated OwnProduct products = 1;
 }
 
-message DescribeImageRequest {
-  int64 user_id = 1;
-  bytes image = 2;
-  // image/png | image/jpeg | image/webp
-  string mime = 3;
-  // uz | ru — tavsif tili.
-  string language = 4;
-}
-
-message ImageDescription {
-  bool ok = 1;
-  string error = 2;
-  // Qisqa nomi: "silikon telefon g'ilofi".
-  string product = 3;
-  repeated string queries_uz = 4;
-  repeated string queries_ru = 5;
-  repeated string colors = 6;
-  string category_hint = 7;
-}
+// `DescribeImage` (rasm → AI tavsifi) 2026-09-17 da OLIB TASHLANDI: rasm
+// bo'yicha qidiruv endi AI'siz — estats-lens'ning vizual indeksi
+// (`MarketIntel.ListProductPhotos`). Nom va raqam qayta ishlatilmasin.
 
 message OwnSalesRequest {
   int64 user_id = 1;

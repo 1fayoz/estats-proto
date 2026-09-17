@@ -57,6 +57,16 @@ service MarketIntel {
 
   // Kartochkani navbatni kutmasdan hozir o'lchash.
   rpc RefreshProduct(RefreshProductRequest) returns (RefreshProductResult);
+
+  // Katalogdagi tovarlarning asosiy surati — sahifa-sahifa (id bo'yicha,
+  // keyset). estats-lens rasm bo'yicha qidiruvning VIZUAL INDEKSINI shundan
+  // quradi va yangilaydi (AI'siz qidiruv).
+  rpc ListProductPhotos(ListProductPhotosRequest) returns (ProductPhotoPage);
+
+  // Berilgan tovarlar — `SearchCatalog` elementi bilan AYNAN bir xil shaklda,
+  // lekin Uzum'ga so'rov yubormasdan, bazadan (nom, surat, oxirgi narx,
+  // do'kon, sotuvchi, turkum, 30 kunlik tushum). Rasm qidiruvi natijalari.
+  rpc GetCatalogItems(CatalogItemsRequest) returns (CatalogItemsResponse);
 }
 
 // ── Umumiy ──────────────────────────────────────────────────────
@@ -398,4 +408,39 @@ message RefreshProductResult {
   // cooldown | busy | not_found | error
   string reason = 2;
   int32 retry_after = 3;
+}
+
+// ── Vizual indeks uchun ─────────────────────────────────────────
+
+message ListProductPhotosRequest {
+  // Shu id'dan KATTA tovarlar (0 — boshidan).
+  int64 after_id = 1;
+  // 1..10000, sukut 5000.
+  int32 limit = 2;
+  // YYYY-MM-DD: faqat shu kundan beri katalogda ko'ringan tovarlar
+  // (bo'sh — hammasi). Katalogdan chiqib ketganlar indeksga kirmasin.
+  string seen_since = 3;
+}
+
+message ProductPhoto {
+  int64 product_id = 1;
+  // Uzum CDN manzili (t_product_240_high).
+  string photo = 2;
+  int64 category_id = 3;
+  string last_seen = 4;
+}
+
+message ProductPhotoPage {
+  repeated ProductPhoto items = 1;
+  // Keyingi so'rov uchun `after_id`; 0 — oxiri.
+  int64 next_after_id = 2;
+}
+
+message CatalogItemsRequest {
+  repeated int64 product_ids = 1;
+}
+
+message CatalogItemsResponse {
+  // So'ralgan tartibda; katalogda yo'q tovar tushib qoladi.
+  repeated CatalogItem items = 1;
 }
