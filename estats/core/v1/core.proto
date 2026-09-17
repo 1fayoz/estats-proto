@@ -35,7 +35,7 @@ service Core {
   // Uzum qidiruvidagi o'rinlar — reklama belgisi bilan, jonli. Qidiruv
   // tokeni va o'rin hisoblash qoidasi yadroda (SEO «Qidiruvdagi o'rin»
   // bilan bir xil): ikkinchi nusxa yozilmaydi.
-  rpc SearchPositions(SearchPositionsRequest) returns (SearchPositions);
+  rpc SearchPositions(SearchPositionsRequest) returns (SearchPositionsResult);
 }
 
 message OwnProductsRequest {
@@ -148,7 +148,7 @@ message QueryPosition {
   bool measured = 6;
 }
 
-message SearchPositions {
+message SearchPositionsResult {
   repeated QueryPosition positions = 1;
   // Bozor tokeni muddati o'tgan va h.k. — xato matni (bo'sh — hammasi o'lchandi).
   string error = 2;
