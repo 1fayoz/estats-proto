@@ -132,6 +132,13 @@ message CardStats {
   // tovarda narx o'zgarishi shundan aniqlanadi.
   optional int64 price = 15;
   string price_day = 16;
+  // Davrdagi sotuv o'lchovlar oralig'ini ham qamraydimi: kartochka bir necha
+  // kun o'lchanmagan bo'lsa, ayirma keyingi o'lchovga TO'LIQ tushadi va
+  // davr boshidan oldingi kunlarni ham o'z ichiga oladi (bo'linmaydi —
+  // bo'lish sotuv o'ylab topish bo'lardi). Interfeys buni ochiq aytadi.
+  bool spans_gap = 17;
+  // Xuddi shu — qisqa davr ("3 kunda sotuv") uchun.
+  bool short_spans_gap = 18;
 }
 
 message CardsResponse {
@@ -297,6 +304,9 @@ message PeriodStats {
   optional int64 prev_revenue = 14;
   // Ulush: 0.18 = +18%. Oldingi davr 0 yoki o'lchanmagan bo'lsa bo'sh.
   optional double growth = 15;
+  // Davr tushumining davr BOSHIDAN oldingi kunlarni ham qamrovchi qismi
+  // (ko'p kunlik ayirma, `gap_days`). Nol bo'lsa maydon yo'q.
+  optional int64 spill_revenue = 16;
 }
 
 message RevenuePoint {
