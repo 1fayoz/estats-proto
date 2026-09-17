@@ -1,0 +1,96 @@
+// eStats Lens — uzum.uz sahifalari ustidagi tahlil (brauzer kengaytmasi
+// va uning xizmati).
+//
+// Bajaradi: `estats-lens`. Chaqiradi: `my-stats-back` (qoralama narx
+// tahlilida haqiqiy komissiya), `estats-bot` (kuzatuvdagi tovarlar).
+//
+// Uzum'ning RASMIY tarif jadvali (komissiya, logistika, saqlash) aynan
+// shu xizmatda o'qiladi va saqlanadi. Boshqa xizmat uni o'zi
+// yuklamasligi kerak: bir jadvalning ikki nusxasi ikki xil kunda
+// yangilanib, ikki xil foyda ko'rsatadi.
+
+syntax = "proto3";
+
+package estats.lens.v1;
+
+option go_package = "github.com/estats/proto/gen/lens/v1;lensv1";
+
+service Lens {
+  // Turkum tariflari. Barg bo'lmagan turkumda komissiya ORALIQ bo'ladi
+  // (`is_range`): ostidagi turkumlarda har xil.
+  rpc GetCategoryTariffs(TariffsRequest) returns (CategoryTariffs);
+
+  // Foydalanuvchi kuzatayotgan tovarlar.
+  rpc ListWatches(WatchesRequest) returns (WatchList);
+}
+
+message TariffsRequest {
+  int64 category_id = 1;
+}
+
+message SchemeTariff {
+  // FBO | FBS | DBS
+  string scheme = 1;
+  // Turkum shu sxemada ochiqmi (jadvalda "-%" — yopiq).
+  bool available = 2;
+  // Ulushlar: 0.25 = 25%.
+  double base_commission = 3;
+  double discount = 4;
+  // Chegirmadan keyingi (amaldagi) komissiya.
+  double commission = 5;
+  // Barg bo'lmagan turkumda oraliq.
+  double commission_min = 6;
+  double commission_max = 7;
+}
+
+message StorageTier {
+  int32 from_days = 1;
+  // 0 — yuqori chegara yo'q.
+  int32 to_days = 2;
+  // So'm / litr / kun.
+  int64 rate_per_liter_day = 3;
+}
+
+message CategoryTariffs {
+  bool found = 1;
+  int64 category_id = 2;
+  repeated string path_uz = 3;
+  repeated string path_ru = 4;
+  bool is_range = 5;
+  repeated SchemeTariff schemes = 6;
+
+  int64 logistics_base = 7;
+  int64 logistics_extra_liter = 8;
+  int64 logistics_max = 9;
+  // O'lchami (VGX) kiritilmagan tovar uchun.
+  int64 logistics_no_dimensions = 10;
+
+  // standard | special
+  string storage_type = 11;
+  repeated StorageTier storage_tiers = 12;
+  int64 storage_max_per_item_day = 13;
+  // Yangi stokni bepul saqlash (ma'lumot uchun, hisobdan ayrilmaydi).
+  int32 free_storage_days = 14;
+
+  string source_url = 15;
+  // ISO-8601, UTC.
+  string fetched_at = 16;
+  string sha256 = 17;
+}
+
+message WatchesRequest {
+  int64 user_id = 1;
+}
+
+message Watch {
+  int64 product_id = 1;
+  string title = 2;
+  string created_at = 3;
+  optional int64 last_price = 4;
+  optional int64 last_stock = 5;
+  string url = 6;
+}
+
+message WatchList {
+  repeated Watch watches = 1;
+}

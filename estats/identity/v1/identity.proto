@@ -35,6 +35,10 @@ service Identity {
   rpc SetNotificationPrefs(PrefsRequest) returns (TelegramAccount);
   // Shu do'kon haqida xabar oladigan chatlar.
   rpc ListNotifyTargets(NotifyTargetsRequest) returns (NotifyTargetList);
+  // Foydalanuvchining O'Z Telegram chatlari — do'konga bog'liq
+  // bo'lmagan xabarlar uchun (masalan, kuzatuvdagi raqobatchi tovar).
+  // Bloklangan chatlar qaytmaydi.
+  rpc ListUserChats(UserRequest) returns (NotifyTargetList);
 }
 
 // ── Kirish ──────────────────────────────────────────────────────

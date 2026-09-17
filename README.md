@@ -11,9 +11,12 @@ ikki xil versiya yashaydi va buni faqat prodda bilib qolasan.
 | Paket | Kim bajaradi | Kim chaqiradi |
 |---|---|---|
 | `estats.common.v1` | — | hammasi |
-| `estats.identity.v1` | `identity` | hammasi |
+| `estats.identity.v1` | `identity` | hammasi (`ListUserChats` — `estats-lens`) |
 | `estats.marketplace.v1` | har marketpleys adapteri | `core`, `seo` |
 | `estats.notifier.v1` | `bot` | `core`, `seo`, `social` |
+| `estats.market.v1` | `estats-market` | `estats-lens` |
+| `estats.core.v1` | `my-stats-back` | `estats-lens` |
+| `estats.lens.v1` | `estats-lens` | `my-stats-back`, `estats-bot` |
 
 ## Generatsiya
 

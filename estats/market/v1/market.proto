@@ -1,0 +1,391 @@
+// Bozor razvedkasi — butun Uzum katalogi bo'yicha O'LCHANGAN ma'lumot.
+//
+// Bajaradi: `estats-market`. Chaqiradi: `estats-lens` (brauzer
+// kengaytmasi uzum.uz sahifalari ustida ko'rsatadigan tahlil).
+//
+// NEGA gRPC, HTTP EMAS. `estats-market` ning HTTP API'si interfeys
+// uchun yozilgan: sahifalash, saralash, formatlangan javob. Kengaytma
+// esa bitta sahifada 60 ta kartochkani birdan so'raydi va javobni o'zi
+// chizadi. Unga kerakli shakl boshqa, va u shakl ikki xizmat orasidagi
+// SHARTNOMA bo'lishi kerak — bir tomonda maydon nomi o'zgarsa,
+// ikkinchisi buni kompilyatsiyada bilsin, prodda emas.
+//
+// QOIDALAR (README dagi umumiy qoidalar ustiga):
+//
+// 1. Sanalar — `YYYY-MM-DD`, Toshkent kuni (bozor o'lchovi shu kun
+//    bilan yoziladi).
+// 2. Pul — so'm, BUTUN son. `common.Money` ishlatilmaydi: bozor faqat
+//    so'mda va har maydonga valyuta qo'shish 60 ta kartochkalik
+//    javobni ikki baravar og'irlashtiradi.
+// 3. `optional` — O'LCHANMAGAN. Nol "sotilmadi" degani, yo'q maydon esa
+//    "bilmaymiz" degani. Ikkalasini aralashtirish tahlilni yolg'on
+//    qiladi (estats-market CLAUDE.md §2).
+
+syntax = "proto3";
+
+package estats.market.v1;
+
+option go_package = "github.com/estats/proto/gen/market/v1;marketv1";
+
+service MarketIntel {
+  // Ma'lumot qaysi kungacha va o'sha kun qanchalik to'liq o'lchangan.
+  rpc GetDataState(DataStateRequest) returns (DataState);
+
+  // Ro'yxat sahifasidagi kartochkalar ostidagi qisqa statistika.
+  // Bitta so'rovda 200 tagacha kartochka.
+  rpc GetCards(CardsRequest) returns (CardsResponse);
+
+  // Tovar sahifasi: SKU jadvali va kunlik qatorlar (qoldiq, narx, sotuv).
+  rpc GetProductAnalytics(ProductAnalyticsRequest) returns (ProductAnalytics);
+
+  // Tovarning turkumlardagi o'rni — kunma-kun.
+  rpc GetCategoryPositions(PositionsRequest) returns (PositionTable);
+
+  // Tovarning qidiruv so'rovlaridagi o'rni — kunma-kun, sahifalab.
+  rpc GetKeywordPositions(KeywordPositionsRequest) returns (PositionTable);
+
+  // Turkum va do'kon sahifasining hisoboti — bir nechta davr birdan.
+  rpc GetCategoryReport(CategoryReportRequest) returns (ScopeReport);
+  rpc GetShopReport(ShopReportRequest) returns (ScopeReport);
+
+  // Turkum — tarif jadvali bilan bog'lash uchun to'liq yo'li.
+  rpc GetCategory(CategoryRequest) returns (Category);
+
+  // Uzum qidiruvi + bozor statistikasi. Rasm bo'yicha qidiruvning
+  // nomzodlari shu yerdan olinadi.
+  rpc SearchCatalog(SearchCatalogRequest) returns (SearchCatalogResponse);
+
+  // Kartochkani navbatni kutmasdan hozir o'lchash.
+  rpc RefreshProduct(RefreshProductRequest) returns (RefreshProductResult);
+}
+
+// ── Umumiy ──────────────────────────────────────────────────────
+
+message ShopRef {
+  int64 id = 1;
+  string title = 2;
+  // uzum.uz/uz/shop/<slug>
+  string slug = 3;
+}
+
+message SellerRef {
+  int64 id = 1;
+  // Yuridik shaxs nomi — Uzum ko'rsatgandek ("ИП ...", "MCHJ ...").
+  string title = 2;
+  // yatt | mchj | aj | ... ; bo'sh — aniqlanmagan.
+  string legal_form = 3;
+}
+
+message CategoryNode {
+  int64 id = 1;
+  string title_uz = 2;
+  string title_ru = 3;
+  // 1 — bosh turkum.
+  int32 level = 4;
+}
+
+// ── Holat ───────────────────────────────────────────────────────
+
+message DataStateRequest {}
+
+message DataState {
+  // Eng so'nggi o'lchangan kun. Bo'sh — hali hech narsa o'lchanmagan.
+  string last_day = 1;
+  // O'sha kunning qamrovi, 0..1.
+  optional double last_day_coverage = 2;
+  string first_day = 3;
+}
+
+// ── Kartochkalar ────────────────────────────────────────────────
+
+message CardsRequest {
+  repeated int64 product_ids = 1;
+  // Asosiy davr, kunlarda (sukut: 30).
+  int32 days = 2;
+  // Qisqa davr ("3 kun uchun sotuvlar"); 0 — hisoblanmaydi.
+  int32 short_days = 3;
+}
+
+message CardStats {
+  int64 product_id = 1;
+  // Kartochka bozor bazasida bormi. `false` — hali hech qachon
+  // o'lchanmagan: qolgan maydonlar bo'sh va bu "sotuv yo'q" EMAS.
+  bool tracked = 2;
+  optional int64 revenue = 3;
+  optional int64 units = 4;
+  optional int64 short_units = 5;
+  // Eng so'nggi o'lchangan qoldiq va uning kuni.
+  optional int64 stock = 6;
+  string stock_day = 7;
+  ShopRef shop = 8;
+  SellerRef seller = 9;
+  // Davrda sotuvi O'LCHANGAN kunlar soni. Davr 30 kun-u bu 4 bo'lsa,
+  // tushum 4 kunniki — interfeys buni aytishi shart.
+  int32 measured_days = 10;
+  // Qoldiqsiz kunlar tufayli qo'ldan ketgan tushum — TAXMIN
+  // (tushum / stokdagi kunlar × stoksiz kunlar).
+  optional int64 lost_revenue = 11;
+  string first_seen = 12;
+  optional double rating = 13;
+  optional int64 reviews = 14;
+  // Eng so'nggi o'lchangan narx (eng arzon variant) va kuni. Kuzatuvdagi
+  // tovarda narx o'zgarishi shundan aniqlanadi.
+  optional int64 price = 15;
+  string price_day = 16;
+}
+
+message CardsResponse {
+  repeated CardStats cards = 1;
+  string period_start = 2;
+  string period_end = 3;
+  string short_start = 4;
+}
+
+// ── Tovar ───────────────────────────────────────────────────────
+
+message ProductAnalyticsRequest {
+  int64 product_id = 1;
+  int32 days = 2;
+  // Bo'sh — hamma SKU. Kunlik qatorlar faqat shu SKU'lar bo'yicha.
+  repeated int64 sku_ids = 3;
+}
+
+message ProductInfo {
+  int64 id = 1;
+  string title = 2;
+  string photo = 3;
+  int64 category_id = 4;
+  // Ildizdan bargacha.
+  repeated CategoryNode category_path = 5;
+  ShopRef shop = 6;
+  SellerRef seller = 7;
+  string first_seen = 8;
+  optional double rating = 9;
+  optional int64 reviews = 10;
+}
+
+message SkuStats {
+  int64 sku_id = 1;
+  string title = 2;
+  int64 revenue = 3;
+  int64 units = 4;
+  // sotuv / o'lchangan kunlar.
+  double units_per_day = 5;
+  // Tushum / stokdagi kunlar × stoksiz kunlar — TAXMIN.
+  optional int64 lost_revenue = 6;
+  // Σ qoldiq / Σ sotuv — o'rtacha qoldiq necha kunlik sotuvga teng.
+  optional double turnover_days = 7;
+  // Davrda ENG KO'P turgan narx (ZoomSelling SKU jadvalidagi ta'rif).
+  optional int64 avg_price = 8;
+  // Davr oxiridagi qoldiq.
+  optional int64 stock = 9;
+  int32 days_in_stock = 10;
+  int32 days_out_of_stock = 11;
+}
+
+message DayPoint {
+  string day = 1;
+  optional int64 stock = 2;
+  // Shu kundagi SKU narxlarining o'rtachasi.
+  optional int64 avg_price = 3;
+  optional int64 units = 4;
+  optional int64 revenue = 5;
+  // Sotuv shu kunga necha kunlik ayirma sifatida tushgan (1 — normal).
+  int32 gap_days = 6;
+}
+
+message ProductAnalytics {
+  bool found = 1;
+  ProductInfo product = 2;
+  string period_start = 3;
+  string period_end = 4;
+  int32 days = 5;
+  repeated SkuStats skus = 6;
+  SkuStats totals = 7;
+  repeated DayPoint series = 8;
+  // Kunlar qayerdan: `estats` (o'z o'lchovimiz) va/yoki `zoomselling`
+  // (import qilingan tarix).
+  repeated string sources = 9;
+  int32 measured_days = 10;
+}
+
+// ── O'rinlar ────────────────────────────────────────────────────
+
+message PositionsRequest {
+  int64 product_id = 1;
+  int32 days = 2;
+}
+
+message KeywordPositionsRequest {
+  int64 product_id = 1;
+  int32 days = 2;
+  // 1 dan boshlab.
+  int32 page = 3;
+  int32 page_size = 4;
+  // position | coverage | keyword
+  string sort = 5;
+  bool desc = 6;
+}
+
+message PositionCell {
+  string day = 1;
+  // Bo'sh + measured=true — o'lchandi, ko'rilgan chuqurlikda yo'q.
+  optional int32 position = 2;
+  // Oldingi O'LCHANGAN kunga nisbatan: oldingi − hozirgi.
+  // Musbat — ko'tarildi (raqam kichraydi), manfiy — tushdi.
+  optional int32 delta = 3;
+  bool is_ad = 4;
+  bool measured = 5;
+}
+
+message PositionRow {
+  string label = 1;
+  string label_ru = 2;
+  // Turkum yoki kalit so'z id'si.
+  int64 ref_id = 3;
+  // Turkum darajasi; kalit so'zda 0.
+  int32 level = 4;
+  optional double avg_position = 5;
+  // Kalit so'z qamrovi (ko'rsatishlar). Uzum ochiq API'si bermaydi —
+  // import qilinmagan bo'lsa bo'sh.
+  optional int64 coverage = 6;
+  // `days` tartibida (eng yangisi birinchi).
+  repeated PositionCell cells = 7;
+}
+
+message PositionTable {
+  // Eng yangisi birinchi.
+  repeated string days = 1;
+  repeated PositionRow rows = 2;
+  int32 total = 3;
+  int32 page = 4;
+  int32 page_size = 5;
+}
+
+// ── Turkum va do'kon hisoboti ───────────────────────────────────
+
+message CategoryReportRequest {
+  int64 category_id = 1;
+  // Masalan [3, 30, 60, 90].
+  repeated int32 periods = 2;
+}
+
+message ShopReportRequest {
+  // Yo id, yo slug.
+  int64 shop_id = 1;
+  string slug = 2;
+  repeated int32 periods = 3;
+}
+
+message PeriodStats {
+  int32 days = 1;
+  string start = 2;
+  string end = 3;
+  // Davrning nechta kuni haqiqatan o'lchangan.
+  int32 measured_days = 4;
+  int64 revenue = 5;
+  optional int64 lost_revenue = 6;
+  int64 units = 7;
+  int32 shops_with_sales = 8;
+  int32 shops_without_sales = 9;
+  int32 products_with_sales = 10;
+  int32 products_without_sales = 11;
+  // Sotilgan dona boshiga tushum.
+  optional int64 avg_price = 12;
+  // Tushum / sotuvi bor do'konlar.
+  optional int64 revenue_per_shop = 13;
+  optional int64 prev_revenue = 14;
+  // Ulush: 0.18 = +18%. Oldingi davr 0 yoki o'lchanmagan bo'lsa bo'sh.
+  optional double growth = 15;
+}
+
+message RevenuePoint {
+  string day = 1;
+  int64 revenue = 2;
+  int64 units = 3;
+}
+
+message PeriodRevenue {
+  int32 days = 1;
+  int64 revenue = 2;
+}
+
+message SellerShop {
+  ShopRef shop = 1;
+  repeated PeriodRevenue revenue = 2;
+}
+
+message ScopeReport {
+  bool found = 1;
+  // Turkum hisobotida.
+  CategoryNode category = 2;
+  repeated CategoryNode path = 3;
+  // Do'kon hisobotida.
+  ShopRef shop = 4;
+  SellerRef seller = 5;
+  repeated PeriodStats periods = 6;
+  // Eng uzun davr bo'yicha kunlik tushum, eskisidan yangisiga.
+  repeated RevenuePoint series = 7;
+  // Do'kon hisobotida: sotuvchining BOSHQA do'konlari, tushum kamayishi tartibida.
+  repeated SellerShop seller_shops = 8;
+  string last_day = 9;
+}
+
+message CategoryRequest {
+  int64 category_id = 1;
+}
+
+message Category {
+  bool found = 1;
+  CategoryNode node = 2;
+  repeated CategoryNode path = 3;
+  bool is_leaf = 4;
+  // Barg bo'lmagan turkumda — ostidagi HAMMA barg turkumlar. Tarif
+  // jadvali faqat barglar bo'yicha yozilgan, shuning uchun ota turkum
+  // komissiyasi shu barglardan oraliq sifatida chiqadi.
+  repeated int64 descendant_leaf_ids = 5;
+}
+
+// ── Qidiruv ─────────────────────────────────────────────────────
+
+message SearchCatalogRequest {
+  string query = 1;
+  int32 limit = 2;
+  // 0 — butun katalog.
+  int64 category_id = 3;
+}
+
+message CatalogItem {
+  int64 product_id = 1;
+  string title = 2;
+  string photo = 3;
+  optional int64 price = 4;
+  optional int64 full_price = 5;
+  ShopRef shop = 6;
+  SellerRef seller = 7;
+  CategoryNode category = 8;
+  optional int64 revenue_30 = 9;
+  optional int64 units_30 = 10;
+  // Kartochka turkumining 30 kunlik tushumi — "bozor hajmi".
+  optional int64 category_revenue_30 = 11;
+  optional double rating = 12;
+  optional int64 reviews = 13;
+}
+
+message SearchCatalogResponse {
+  repeated CatalogItem items = 1;
+  int32 total = 2;
+  // Bo'sh — muvaffaqiyatli. Aks holda sababi (masalan, token muddati).
+  string error = 3;
+}
+
+message RefreshProductRequest {
+  int64 product_id = 1;
+}
+
+message RefreshProductResult {
+  bool refreshed = 1;
+  // cooldown | busy | not_found | error
+  string reason = 2;
+  int32 retry_after = 3;
+}

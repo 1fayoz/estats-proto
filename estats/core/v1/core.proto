@@ -1,0 +1,89 @@
+// Yadro (`my-stats-back`) — sotuvchining O'Z do'koni haqidagi bilim.
+//
+// Bajaradi: `my-stats-back`. Chaqiradi: `estats-lens`.
+//
+// Bozor (`estats-market`) raqobatchining tushumini biladi, lekin hech
+// kimning TANNARXINI bilmaydi. Tannarx faqat yadroda: sotuvchi kirim
+// kiritadi va FIFO uni sotuvlarga taqsimlaydi. Kengaytma sotuvchining
+// o'z tovari sahifasida "unit iqtisodiyoti"ni taxminiy tannarx bilan
+// emas, HAQIQIY tannarx bilan hisoblashi uchun shu shartnoma kerak.
+//
+// Pul — so'm, butun son. `optional` — noma'lum (nol emas).
+
+syntax = "proto3";
+
+package estats.core.v1;
+
+option go_package = "github.com/estats/proto/gen/core/v1;corev1";
+
+service Core {
+  // Foydalanuvchi ko'ra oladigan do'konlardagi shu Uzum tovarlari.
+  // Tovar foydalanuvchiga tegishli bo'lmasa — ro'yxatda YO'Q (xato emas).
+  rpc GetOwnProducts(OwnProductsRequest) returns (OwnProducts);
+
+  // Rasmdan qidiruv so'rovlari: "bu nima va Uzum'da qanday izlanadi".
+  // AI sarfi yadroning yagona hisobiga (`ai_usage`) yoziladi — kalit
+  // ham, sarf ham bitta joyda.
+  rpc DescribeImage(DescribeImageRequest) returns (ImageDescription);
+}
+
+message OwnProductsRequest {
+  int64 user_id = 1;
+  repeated int64 uzum_product_ids = 2;
+}
+
+message OwnSku {
+  // Uzum SKU id'si.
+  int64 sku_id = 1;
+  string title = 2;
+  // FIFO o'rtacha tannarx — ruxsat bo'lsagina (`pnl.view`).
+  optional int64 average_cost = 3;
+  optional int64 last_cost = 4;
+  int64 stock = 5;
+  optional int64 price = 6;
+}
+
+message OwnProduct {
+  int64 uzum_product_id = 1;
+  // eStats ichki do'kon id'si.
+  int64 shop_id = 2;
+  string shop_name = 3;
+  repeated OwnSku skus = 4;
+  // SKU tannarxlarining qoldiq bo'yicha o'rtachasi.
+  optional int64 average_cost = 5;
+  int64 stock = 6;
+  optional int64 sold_30 = 7;
+  optional int64 revenue_30 = 8;
+  // Uzum 30 kunda to'lagan (sotuvchi foydasi) — ruxsat bo'lsagina.
+  optional int64 payout_30 = 9;
+  // 1 − to'lov / tushum: komissiya + logistika HAQIQATDA qancha
+  // ushlangani. Ruxsat bo'lsagina.
+  optional double effective_fee_rate = 10;
+  // Tannarx ko'rinadimi (`pnl.view`). `false` bo'lsa pul maydonlari bo'sh.
+  bool money_visible = 11;
+  string warehouse_url = 12;
+}
+
+message OwnProducts {
+  repeated OwnProduct products = 1;
+}
+
+message DescribeImageRequest {
+  int64 user_id = 1;
+  bytes image = 2;
+  // image/png | image/jpeg | image/webp
+  string mime = 3;
+  // uz | ru — tavsif tili.
+  string language = 4;
+}
+
+message ImageDescription {
+  bool ok = 1;
+  string error = 2;
+  // Qisqa nomi: "silikon telefon g'ilofi".
+  string product = 3;
+  repeated string queries_uz = 4;
+  repeated string queries_ru = 5;
+  repeated string colors = 6;
+  string category_hint = 7;
+}
