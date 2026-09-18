@@ -39,6 +39,27 @@ service Identity {
   // bo'lmagan xabarlar uchun (masalan, kuzatuvdagi raqobatchi tovar).
   // Bloklangan chatlar qaytmaydi.
   rpc ListUserChats(UserRequest) returns (NotifyTargetList);
+
+  // ── Brauzer kengaytmasi: qurilma tokenlari ───────────────────
+  // Kengaytma JWT tashiy olmaydi (u brauzerda, uzum.uz sahifasida
+  // ishlaydi), shuning uchun unga uzoq yashaydigan QURILMA tokeni
+  // beriladi. Token shu yerda yaratiladi va shu yerda tekshiriladi —
+  // yuqoridagi qoida bilan bir xil: hech bir xizmat o'z token
+  // omborini tutmaydi.
+  rpc IssueDeviceToken(IssueDeviceRequest) returns (DeviceToken);
+  rpc VerifyDeviceToken(DeviceTokenRequest) returns (DevicePrincipal);
+  rpc ListDevices(UserRequest) returns (DeviceList);
+  rpc RevokeDevice(RevokeDeviceRequest) returns (estats.common.v1.Result);
+  // Bir martalik ko'chirish: xizmatning O'Z jadvalidagi eski
+  // qurilmalarni markazga o'tkazish (token xeshi bilan) — shu tufayli
+  // ulangan kengaytmalar qayta ulanishga majbur bo'lmaydi.
+  rpc ImportDevice(ImportDeviceRequest) returns (DeviceRecord);
+
+  // ── Foydalanish hodisalari ───────────────────────────────────
+  // Foydalanuvchiga bog'langan har qanday o'lchov shu yerda saqlanadi.
+  // Oq ro'yxat va chegaralar ham shu yerda: xizmat nima yuborishidan
+  // qat'i nazar, markaz qabul qilmaydigan narsa yozilmaydi.
+  rpc RecordUsage(UsageBatch) returns (UsageResult);
 }
 
 // ── Kirish ──────────────────────────────────────────────────────
@@ -168,4 +189,113 @@ message Target {
   int64 chat_id = 1;
   int64 user_id = 2;
   string language = 3;
+}
+
+// ── Brauzer kengaytmasi ─────────────────────────────────────────
+
+message IssueDeviceRequest {
+  int64 user_id = 1;
+  // Qaysi xizmat uchun: "lens". Bitta foydalanuvchida bir necha
+  // xizmatning qurilmasi bo'lishi mumkin va ular aralashmasligi kerak.
+  string service = 2;
+  string name = 3;
+  string user_agent = 4;
+  string extension_version = 5;
+}
+
+// Xom token FAQAT shu javobda, BIR MARTA qaytadi — keyin faqat xeshi
+// saqlanadi va uni hech kim qayta o'qiy olmaydi.
+message DeviceToken {
+  bool ok = 1;
+  string error = 2;
+  string token = 3;
+  DeviceRecord device = 4;
+}
+
+message DeviceTokenRequest {
+  string token = 1;
+  string service = 2;
+  // Ixtiyoriy: shu chaqiruvda yangilanadigan holat (kamdan-kam
+  // yoziladi — chaqiruvchi o'zi tejaydi).
+  string extension_version = 3;
+}
+
+message DevicePrincipal {
+  bool valid = 1;
+  int64 device_id = 2;
+  int64 user_id = 3;
+  string error = 4;
+  // Tekshirish paytida qurilma qachon oxirgi ko'ringani (yangilanishdan
+  // OLDINGI qiymat) — chaqiruvchi "birinchi marta bugun" kabi qarorlar
+  // uchun ishlatadi.
+  string last_seen_at = 5;
+}
+
+message DeviceRecord {
+  int64 id = 1;
+  int64 user_id = 2;
+  string service = 3;
+  string name = 4;
+  // Tokenning oxirgi 4 belgisi — ro'yxatda ajratish uchun.
+  string token_hint = 5;
+  string extension_version = 6;
+  string user_agent = 7;
+  string created_at = 8;
+  string last_seen_at = 9;
+  string revoked_at = 10;
+}
+
+message DeviceList {
+  repeated DeviceRecord devices = 1;
+}
+
+message RevokeDeviceRequest {
+  int64 user_id = 1;
+  int64 device_id = 2;
+  string service = 3;
+}
+
+message ImportDeviceRequest {
+  int64 user_id = 1;
+  string service = 2;
+  // Tayyor sha256 xeshi — xom token ko'chirishda ishtirok etmaydi.
+  string token_hash = 3;
+  string token_hint = 4;
+  string name = 5;
+  string extension_version = 6;
+  string user_agent = 7;
+  string created_at = 8;
+  string last_seen_at = 9;
+  string revoked_at = 10;
+}
+
+// ── Foydalanish hodisalari ──────────────────────────────────────
+
+message UsageBatch {
+  int64 user_id = 1;
+  int64 device_id = 2;
+  string service = 3;
+  repeated UsageEvent events = 4;
+}
+
+// Maydonlar ATAYLAB sanoqli: sahifa manzili, sahifa matni, qidiruv
+// so'zi yoki nozik toifadagi ma'lumot uchun joy YO'Q va bo'lmaydi.
+message UsageEvent {
+  string name = 1;
+  string surface = 2;
+  // Marketpleysning OCHIQ raqamli id'si (maxfiy emas).
+  int64 target_id = 3;
+  bool own_product = 4;
+  int32 period_days = 5;
+  int32 value = 6;
+  string extension_version = 7;
+  string locale = 8;
+}
+
+message UsageResult {
+  bool ok = 1;
+  string error = 2;
+  // Qabul qilingan va oq ro'yxatdan o'tmagani uchun tashlangan soni.
+  int32 stored = 3;
+  int32 dropped = 4;
 }
