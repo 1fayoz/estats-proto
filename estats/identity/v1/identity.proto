@@ -90,6 +90,10 @@ message SetPasswordRequest {
   int64 user_id = 1;
   string password = 2;
   string current_password = 3;
+  // Chaqiruvchi kimlikni BOSHQA yo'l bilan hozirgina tasdiqlagan
+  // (Google bilan kirish) — joriy parol so'ralmaydi. "Parolni
+  // unutdim" yo'li shu.
+  bool reset = 4;
 }
 
 message Session {
