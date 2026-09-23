@@ -18,6 +18,13 @@ service Identity {
   // Telegram WebApp `initData` ni tekshiradi va sessiya beradi.
   // Shu tufayli WebApp ochilganda qayta login so'ralmaydi.
   rpc AuthenticateWebApp(WebAppRequest) returns (Session);
+  // Email va parol bilan kirish. Parol FAQAT Google bilan kirib, hisob
+  // ochilgandan keyin o'rnatiladi (`SetPassword`) — yangi hisob bu
+  // yerda ochilmaydi.
+  rpc AuthenticatePassword(PasswordLoginRequest) returns (Session);
+  // Parol o'rnatish yoki almashtirish. Parol bor bo'lsa
+  // `current_password` majburiy. Xato — INVALID_ARGUMENT.
+  rpc SetPassword(SetPasswordRequest) returns (User);
   // Har so'rovda: token haqiqiymi va kim.
   rpc VerifyToken(TokenRequest) returns (Principal);
 
@@ -74,6 +81,17 @@ message WebAppRequest {
   string init_data = 1;
 }
 
+message PasswordLoginRequest {
+  string email = 1;
+  string password = 2;
+}
+
+message SetPasswordRequest {
+  int64 user_id = 1;
+  string password = 2;
+  string current_password = 3;
+}
+
 message Session {
   bool ok = 1;
   string error = 2;
@@ -112,6 +130,8 @@ message User {
   bool is_admin = 6;
   string language = 7;
   repeated Shop shops = 8;
+  // Parol o'rnatilganmi. Xeshning o'zi hech qachon chiqmaydi.
+  bool has_password = 9;
 }
 
 message Shop {
