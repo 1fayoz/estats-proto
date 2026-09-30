@@ -67,6 +67,16 @@ service MarketIntel {
   // lekin Uzum'ga so'rov yubormasdan, bazadan (nom, surat, oxirgi narx,
   // do'kon, sotuvchi, turkum, 30 kunlik tushum). Rasm qidiruvi natijalari.
   rpc GetCatalogItems(CatalogItemsRequest) returns (CatalogItemsResponse);
+
+  // Nisha bo'yicha qidiruv so'rovlari — TALAB bilan birga.
+  //
+  // `my-stats-back` ning SEO moduli nomzod so'zlarni o'z lug'atidan
+  // (`seo_keywords`, prodda 7 794 ibora) yig'adi — u faqat SHU do'kon
+  // o'lchagan so'zlardan iborat. Bu yerda esa butun bozorning lug'ati:
+  // 21 187 kuzatilayotgan so'z va import qilingan hisobotdagi 2 488
+  // nisha bo'yicha kunlik qamrov. Talab bilan tartiblangan nomzod
+  // sotuvchiga «bu so'zni ham qo'shing» deyishning eng ishonchli yo'li.
+  rpc SuggestKeywords(SuggestKeywordsRequest) returns (SuggestKeywordsResponse);
 }
 
 // ── Umumiy ──────────────────────────────────────────────────────
@@ -443,4 +453,31 @@ message CatalogItemsRequest {
 message CatalogItemsResponse {
   // So'ralgan tartibda; katalogda yo'q tovar tushib qoladi.
   repeated CatalogItem items = 1;
+}
+
+// ── Nisha bo'yicha so'rovlar ────────────────────────────────────
+
+message SuggestKeywordsRequest {
+  // Nisha (turkum) nomlari — Uzum yozganidek. Solishtirish kichik
+  // harfda va bo'shliqlar qisqartirilgan holda bo'ladi: chaqiruvchining
+  // turkum nomi kabinetdan, bizniki hisobotdan keladi.
+  repeated string subjects = 1;
+  // Ko'pi bilan shuncha so'z (talab bo'yicha eng kattasi).
+  int32 limit = 2;
+}
+
+message KeywordDemand {
+  string text = 1;
+  // Kunlik qamrov — so'rov kuniga o'rtacha necha marta ko'rsatilgan.
+  // O'LCHOVIMIZ EMAS: Uzum ochiq API'si buni bermaydi, qiymat import
+  // qilingan hisobotdan keladi. Bo'lmasa maydon YO'Q (nol emas).
+  optional int64 daily_coverage = 2;
+  // Qaysi nishadan topilgani.
+  string subject = 3;
+}
+
+message SuggestKeywordsResponse {
+  repeated KeywordDemand keywords = 1;
+  // Import qaysi kun holatiga (bo'sh — import yo'q).
+  string as_of = 2;
 }
